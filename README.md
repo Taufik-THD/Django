@@ -1,2 +1,1 @@
-# Django_commerce
-simple backend commerce with Python-Django
+# sign_in & sign_up Django-PostgreSQL
