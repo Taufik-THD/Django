@@ -14,6 +14,9 @@ import urlparse
 import bcrypt
 import json
 
+from rest_framework import generics, permissions
+import jwt
+
 # Create your views here.
 
 @csrf_exempt
@@ -48,34 +51,49 @@ def sign_up(request):
 @csrf_exempt
 def sign_in(request):
     user = Users.objects.filter(email=request.POST['email'])
-
-    if user.values('email'):
-
+    email = user.values('email')[0]['email']
+    if email:
         data = user.values('password')[0]
         hashed = bcrypt.hashpw(str(request.POST['password']), str(data['password']))
 
         if hashed == data['password']:
-            return HttpResponse('Sign In success...')
+            token = jwt.encode({'email': email}, 'secret_token', algorithm='HS256')
+
+            # decoded = jwt.decode(token, data['password'], algorithms=['HS256'])
+            # print(decoded)
+
+            return HttpResponse('Sign In success, your token: '+ token)
         else:
             return HttpResponse('Wrong password...')
 
     else:
         return HttpResponse('Email is not defined...')
-
+# eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6Im1lbGFAcm92aWFuaS5jb21zIn0.dYVNedGaM618Yj7Zmig-KDRPAwWAft6j96kLKwxmnzI
 @csrf_exempt
 def update(request, data):
-    update = Users.objects.filter(id=data).update(
-            first_name=request.POST['first_name'],
-            last_name=request.POST['last_name'],
-            email=request.POST['email']
-           )
+    headers = request.META.get('HTTP_TOKEN')
+    
+    try:
+        decode = jwt.decode(str(headers), 'secret_token', algorithms=['HS256'])
+        
+        update = Users.objects.filter(id=data).update(
+                 first_name=request.POST['first_name'],
+                 last_name=request.POST['last_name'],
+                 email=request.POST['email']
+               )
+        
+        project = Users.objects.get(id=data)
+        form=UsersForm(request.POST,instance=project)
+        if form.is_valid():
+           form.save(commit=True)
 
-    project = Users.objects.get(id=data)
-    form=UsersForm(request.POST,instance=project)
-    if form.is_valid():
-       form.save(commit=True)
-
-    return HttpResponse('updated')
+        return HttpResponse('updated')
+        
+    except:
+        print 'gagal'
+        
+        return HttpResponse('Please input a valid token..')
+    
 
 @csrf_exempt
 def delete(request, data):
